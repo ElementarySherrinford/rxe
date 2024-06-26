@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "vmalloc.h": "c",
+        "rxe.h": "c",
+        "uverbs_ioctl.h": "c",
+        "rxe_pool.h": "c",
+        "skbuff.h": "c",
+        "rxe_loc.h": "c",
+        "charconv": "c",
+        "ratio": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}
