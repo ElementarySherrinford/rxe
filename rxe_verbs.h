@@ -214,9 +214,9 @@ struct rxe_resp_info {
 	__uint128_t	ooo_bitmap1; //BDP bit precision, bitmap to track received packets
 	__uint128_t	ooo_bitmap2; //BDP bit precision, bitmap to track last packet
 	u32			msn;
-	u32			psn;
-	u32			ack_psn;
-	u32			sack_psn; //Selective ACK PSN  
+	u32			psn; //expected PSN
+	u32			ack_psn; //cumACK PSN
+	//u32			sack_psn; //Selective ACK PSN  
 	int			opcode;
 	int			drop_msg;
 	int			goto_error;

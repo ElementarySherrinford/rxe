@@ -125,11 +125,14 @@ static enum resp_states check_psn(struct rxe_qp *qp,
 	case IB_QPT_RC:
 		if (diff > 0) {
 			if (qp->resp.sent_psn_nak)
-				return RESPST_CLEANUP;
+				//return RESPST_CLEANUP;
+				return RESPST_CHK_OP_SEQ;
+
 
 			qp->resp.sent_psn_nak = 1;
 			rxe_counter_inc(rxe, RXE_CNT_OUT_OF_SEQ_REQ);
-			return RESPST_ERR_PSN_OUT_OF_SEQ;
+			return RESPST_CHK_OP_SEQ;
+			//return RESPST_ERR_PSN_OUT_OF_SEQ;
 
 		} else if (diff < 0) {
 			rxe_counter_inc(rxe, RXE_CNT_DUP_REQ);
@@ -415,6 +418,8 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 		qp->resp.resid = sizeof(u64);
 		access = IB_ACCESS_REMOTE_ATOMIC;
 	} else {
+		if (qp->resp.sent_psn_nak)
+				return RESPST_ERR_PSN_OUT_OF_SEQ;
 		return RESPST_EXECUTE;
 	}
 
@@ -422,6 +427,8 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 	if ((pkt->mask & (RXE_READ_MASK | RXE_WRITE_OR_SEND)) &&
 	    (pkt->mask & RXE_RETH_MASK) &&
 	    reth_len(pkt) == 0) {
+			if (qp->resp.sent_psn_nak)
+				return RESPST_ERR_PSN_OUT_OF_SEQ;
 		return RESPST_EXECUTE;
 	}
 
@@ -470,6 +477,8 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 	WARN_ON_ONCE(qp->resp.mr);
 
 	qp->resp.mr = mem;
+	if (qp->resp.sent_psn_nak)
+		return RESPST_ERR_PSN_OUT_OF_SEQ;
 	return RESPST_EXECUTE;
 
 err:
@@ -602,6 +611,17 @@ static struct sk_buff *prepare_ack_packet(struct rxe_qp *qp,
 	if (ack->mask & RXE_AETH_MASK) {
 		aeth_set_syn(ack, syndrome);
 		aeth_set_msn(ack, qp->resp.msn);
+		aeth_set_ncqe(ack, qp->resp.numCQEdone);
+		aeth_set_cumACK(ack, qp->resp.ack_psn);
+		/*if (syndrome == AETH_NAK_PSN_SEQ_ERROR)
+		{
+			aeth_set_ncqe(ack, qp->resp.numCQEdone);
+			aeth_set_cumACK(ack, qp->resp.ack_psn);
+		}
+		else {
+			aeth_set_ncqe(ack, 0);
+			aeth_set_cumACK(ack, 0);
+		}*/
 	}
 
 	if (ack->mask & RXE_ATMACK_MASK)
@@ -789,7 +809,10 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 		/* Unreachable */
 		WARN_ON_ONCE(1);
 	}
+
 	__uint128_t temp = qp->resp.ooo_bitmap1 | qp->resp.ooo_bitmap2;
+
+	qp->resp.numCQEdone = 0;
 
 	uint_fast8_t msnInc = 0, bits_to_shift = 0; //LOGBDP bit
 
@@ -880,6 +903,64 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 		qp->resp.numCQEdone++;
 		return RESPST_COMPLETE;
 	} else if (qp_type(qp) == IB_QPT_RC)
+		return RESPST_ACKNOWLEDGE;
+	else
+		return RESPST_CLEANUP;
+}
+
+//if arrived packet's sequence number is greater than expected, prepare an NACK and mark bitmap.
+//TODO:read process should be modified, now it's only for semantic completeness.
+static enum resp_states ooo_handling(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
+{
+	qp->resp.aeth_syndrome == AETH_NAK_PSN_SEQ_ERROR;
+	__uint128_t temp = 1;
+	temp = temp << (pkt->psn - qp->resp.psn);
+	if(pkt->mask & RXE_END_MASK) {
+		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 | temp;	
+	}
+	if((pkt->mask & RXE_COMP_MASK) || (!pkt->mask & RXE_END_MASK)) {
+		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 | temp;	
+	}
+
+	enum resp_states err;
+
+	if (pkt->mask & RXE_SEND_MASK) {
+		if (qp_type(qp) == IB_QPT_UD ||
+		    qp_type(qp) == IB_QPT_SMI ||
+		    qp_type(qp) == IB_QPT_GSI) {
+			union rdma_network_hdr hdr;
+
+			build_rdma_network_hdr(&hdr, pkt);
+
+			err = send_data_in(qp, &hdr, sizeof(hdr));
+			if (err)
+				return err;
+		}
+		err = send_data_in(qp, payload_addr(pkt), payload_size(pkt));
+		if (err)
+			return err;
+	} else if (pkt->mask & RXE_WRITE_MASK) {
+		err = write_data_in(qp, pkt);
+		if (err)
+			return err;
+	} else if (pkt->mask & RXE_READ_MASK) {
+		/* For RDMA Read we can increment the msn now. See C9-148. */
+		qp->resp.msn++;
+		return RESPST_READ_REPLY;
+	} else if (pkt->mask & RXE_ATOMIC_MASK) {
+		err = process_atomic(qp, pkt);
+		if (err)
+			return err;
+	} else {
+		/* Unreachable */
+		WARN_ON_ONCE(1);
+	}
+
+	qp->resp.opcode = pkt->opcode;
+	qp->resp.status = IB_WC_SUCCESS;
+
+	//send_ack(qp, pkt, AETH_NAK_PSN_SEQ_ERROR, qp->resp.psn);
+	if (qp_type(qp) == IB_QPT_RC)
 		return RESPST_ACKNOWLEDGE;
 	else
 		return RESPST_CLEANUP;
@@ -1343,8 +1424,9 @@ int rxe_responder(void *arg)
 			break;
 		case RESPST_ERR_PSN_OUT_OF_SEQ:
 			/* RC only - Class B. Drop packet. */
-			send_ack(qp, pkt, AETH_NAK_PSN_SEQ_ERROR, qp->resp.psn);
-			state = RESPST_CLEANUP;
+			state = ooo_handling(qp, pkt);
+			/*send_ack(qp, pkt, AETH_NAK_PSN_SEQ_ERROR, qp->resp.psn);
+			state = RESPST_CLEANUP;*/
 			break;
 
 		case RESPST_ERR_TOO_MANY_RDMA_ATM_REQ:

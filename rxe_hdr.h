@@ -726,10 +726,14 @@ static inline void atmeth_set_comp(struct rxe_pkt_info *pkt, u64 comp)
  ******************************************************************************/
 struct rxe_aeth {
 	__be32			smsn;
+	__be32			nCQEcumACK;
+
 };
 
 #define AETH_SYN_MASK		(0xff000000)
 #define AETH_MSN_MASK		(0x00ffffff)
+#define AETH_NCQE_MASK		(0xff000000)
+#define AETH_CACK_MASK		(0x00ffffff)
 
 enum aeth_syndrome {
 	AETH_TYPE_MASK		= 0xe0,
@@ -777,6 +781,38 @@ static inline void __aeth_set_msn(void *arg, u32 msn)
 			 (~AETH_MSN_MASK & smsn));
 }
 
+static inline u32 __aeth_ncqe(void *arg)
+{
+	struct rxe_aeth *aeth = arg;
+
+	return AETH_NCQE_MASK & be32_to_cpu(aeth->nCQEcumACK) >> 24;
+}
+
+static inline void __aeth_set_ncqe(void *arg, u8 numCQEdone)
+{
+	struct rxe_aeth *aeth = arg;
+	u32 nCQEcumACK = be32_to_cpu(aeth->nCQEcumACK);
+
+	aeth->nCQEcumACK = cpu_to_be32((AETH_NCQE_MASK & (numCQEdone << 24)) |
+			 (~AETH_NCQE_MASK & nCQEcumACK));
+}
+
+static inline u32 __aeth_cumACK(void *arg)
+{
+	struct rxe_aeth *aeth = arg;
+
+	return AETH_CACK_MASK & be32_to_cpu(aeth->nCQEcumACK);
+}
+
+static inline void __aeth_set_cumACK(void *arg, u32 cumACK)
+{
+	struct rxe_aeth *aeth = arg;
+	u32 nCQEcumACK = be32_to_cpu(aeth->nCQEcumACK);
+
+	aeth->nCQEcumACK = cpu_to_be32((AETH_CACK_MASK & cumACK) |
+			 (~AETH_CACK_MASK & nCQEcumACK));
+}
+
 static inline u8 aeth_syn(struct rxe_pkt_info *pkt)
 {
 	return __aeth_syn(pkt->hdr +
@@ -798,6 +834,30 @@ static inline u32 aeth_msn(struct rxe_pkt_info *pkt)
 static inline void aeth_set_msn(struct rxe_pkt_info *pkt, u32 msn)
 {
 	__aeth_set_msn(pkt->hdr +
+		rxe_opcode[pkt->opcode].offset[RXE_AETH], msn);
+}
+
+static inline u8 aeth_ncqe(struct rxe_pkt_info *pkt)
+{
+	return __aeth_ncqe(pkt->hdr +
+		rxe_opcode[pkt->opcode].offset[RXE_AETH]);
+}
+
+static inline void aeth_set_ncqe(struct rxe_pkt_info *pkt, u8 syn)
+{
+	__aeth_set_ncqe(pkt->hdr +
+		rxe_opcode[pkt->opcode].offset[RXE_AETH], syn);
+}
+
+static inline u32 aeth_cumACK(struct rxe_pkt_info *pkt)
+{
+	return __aeth_cumACK(pkt->hdr +
+		rxe_opcode[pkt->opcode].offset[RXE_AETH]);
+}
+
+static inline void aeth_set_cumACK(struct rxe_pkt_info *pkt, u32 msn)
+{
+	__aeth_set_cumACK(pkt->hdr +
 		rxe_opcode[pkt->opcode].offset[RXE_AETH], msn);
 }
 
