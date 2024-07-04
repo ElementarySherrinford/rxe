@@ -212,6 +212,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 {
 	unsigned int mask = pkt->mask;
 	u8 syn;
+	__u32 cumAck;
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 
 	/* Check the sequence only */
@@ -280,10 +281,41 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 		return COMPST_ATOMIC;
 
 	case IB_OPCODE_RC_ACKNOWLEDGE:
+		cumAck = aeth_cumACK(pkt);
+		//update next sequence to send, if cumulative ack is higher.
+		if(psn_compare(cumAck, qp->req.nextSNtoSend) > 0)
+			qp->req.nextSNtoSend = cumAck;
+
+		//check if any new packets are cumulatively acked and update last ack value and the bitmap. 
+		bool newAck = false;
+		if(psn_compare(cumAck, qp->comp.psn) > 0) {
+			newAck = true;
+			qp->comp.sack_bitmap = qp->comp.sack_bitmap >> (cumAck - qp->comp.psn); //keep the pos 0 of the sack bitmap to be lACK pkt.
+			qp->comp.psn = cumAck;
+		}
+
 		syn = aeth_syn(pkt);
 		switch (syn & AETH_TYPE_MASK) {
 		case AETH_ACK:
 			reset_retry_counters(qp);
+			//when cumulative ack is greater than recovery sequence, 
+			//exit recovery and disable flags for retransmission and bitmap lookup.
+			if (psn_compare(cumAck, qp->req.recoverSN) > 0) {
+				qp->req.inRecovery = false;
+				qp->req.findNewHole = false;
+				qp->req.doRetransmit = false;
+			}
+			//if new packets have been acked,
+			if (newAck) {
+				if(qp->req.inRecovery) {
+					//partial ack: retransmit this packet only if it has not already been retransmitted. i.e. update retransmitSN to avoid duplicate retransmit.
+					if((qp->req.retransmitSN < qp->comp.psn) || ((qp->req.retransmitSN == qp->comp.psn) && (qp->req.doRetransmit))) { 
+						qp->req.retransmitSN = qp->comp.psn;
+						qp->req.doRetransmit = true;
+						qp->req.findNewHole = false;
+					}	 
+				}	 
+			}
 			return COMPST_WRITE_SEND;
 
 		case AETH_RNR_NAK:
@@ -294,9 +326,9 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 			switch (syn) {
 			case AETH_NAK_PSN_SEQ_ERROR:
 				/* a nak implicitly acks all packets with psns
-				 * before
+				 * before(original ooo handling routine)
 				 */
-				if (psn_compare(pkt->psn, qp->comp.psn) > 0) {
+				/*if (psn_compare(pkt->psn, qp->comp.psn) > 0) {
 					rxe_counter_inc(rxe,
 							RXE_CNT_RCV_SEQ_ERR);
 					qp->comp.psn = pkt->psn;
@@ -305,7 +337,64 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 						rxe_run_task(&qp->req.task, 0);
 					}
 				}
-				return COMPST_ERROR_RETRY;
+				return COMPST_ERROR_RETRY;*/
+				if (psn_compare(cumAck, qp->comp.psn) > 0) {
+					rxe_counter_inc(rxe,
+							RXE_CNT_RCV_SEQ_ERR);
+					if (qp->req.wait_psn) {
+						qp->req.wait_psn = 0;
+						rxe_run_task(&qp->req.task, 0);
+					}
+				}
+				// update bitmap to set selective ack.
+				__uint128_t temp = 1; //BDP-bit
+				temp = temp << (pkt->psn - qp->comp.psn);
+				qp->comp.sack_bitmap = qp->comp.sack_bitmap | temp; //mark sack bitmap
+				if(qp->req.inRecovery) {
+					//if packet set for retransmission is selectively acked, don't retransmit it, and find new hole instead.
+					if(qp->req.doRetransmit && (qp->req.retransmitSN == pkt->psn)) {
+						qp->req.findNewHole = true;
+						qp->req.doRetransmit = false;
+					}
+					//if the sack creation leads to new holes, and retransmit flag is not set to true, 
+					//set flag to find new holes.
+					else if(!qp->req.doRetransmit) {
+						__uint128_t temp2 = qp->comp.sack_bitmap >> (pkt->psn - qp->comp.psn + 1);
+						if(temp2 == 0) {
+							qp->req.findNewHole = true;
+						}
+					} 
+				}
+				//when cumulative ack is greater than recovery sequence, 
+				//exit recovery and disable flags for retransmission and bitmap lookup.
+				if (psn_compare(cumAck, qp->req.recoverSN) > 0) {
+					qp->req.inRecovery = false;
+					qp->req.findNewHole = false;
+					qp->req.doRetransmit = false;
+				}
+				//if new packets have been acked,
+				if (newAck) {
+					if(qp->req.inRecovery) {
+						//partial ack: retransmit this packet only if it has not already been retransmitted. i.e. update retransmitSN to avoid duplicate retransmit.
+						if((qp->req.retransmitSN < qp->comp.psn) || ((qp->req.retransmitSN == qp->comp.psn) && (qp->req.doRetransmit))) { 
+							qp->req.retransmitSN = qp->comp.psn;
+							qp->req.doRetransmit = true;
+							qp->req.findNewHole = false;
+						}	 
+					}	 
+				} else {
+					if(!qp->req.inRecovery) {
+						//first duplicated cumulative ack. 
+						//check if it is due to a valid lost packet. Start retransmission.
+						if (psn_compare(qp->comp.psn, qp->req.nextSNtoSend) < 0) { 
+							qp->req.retransmitSN = qp->comp.psn;
+							qp->req.doRetransmit = true;
+							qp->req.findNewHole = false;
+							rxe_run_task(&qp->req.task, 0);
+						}
+					}
+				}
+				return COMPST_WRITE_SEND;
 
 			case AETH_NAK_INVALID_REQ:
 				wqe->status = IB_WC_REM_INV_REQ_ERR;

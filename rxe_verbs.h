@@ -158,7 +158,10 @@ enum rxe_qp_state {
 struct rxe_req_info {
 	enum rxe_qp_state	state;
 	int			wqe_index;
-	u32			psn;
+	u32			psn; // 24bit, psn to be sent via TX.
+	__u32	nextSNtoSend;// next new packet psn to be sent.
+	__u32	retransmitSN; //24bit, current psn set for retransmission.
+	__u32	recoverSN;	//24bit, latest sent pkt's PSN.
 	int			opcode;
 	atomic_t		rd_atomic;
 	int			wait_fence;
@@ -166,17 +169,21 @@ struct rxe_req_info {
 	int			wait_psn;
 	int			need_retry;
 	int			noack_pkts;
+	bool doRetransmit; // flag to determine whether to retransmit current hole.
+	bool inRecovery; // flag to enable/disable recovery mode.
+	bool findNewHole; // flag to determine whether to seek for a new hole to retransmit.
 	struct rxe_task		task;
 };
 
 struct rxe_comp_info {
-	u32			psn;
+	u32			psn; // 24bit, last psn of sequentially acked pkt.
 	int			opcode;
 	int			timeout;
 	int			timeout_retry;
 	int			started_retry;
 	u32			retry_cnt;
 	u32			rnr_retry;
+	__uint128_t	sack_bitmap; //BDP bit, bitmap to track sack packets.
 	struct rxe_task		task;
 };
 
