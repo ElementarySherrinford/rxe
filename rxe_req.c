@@ -458,8 +458,16 @@ static struct sk_buff *init_req_packet(struct rxe_qp *qp,
 	/* init optional headers */
 	if (pkt->mask & RXE_RETH_MASK) {
 		reth_set_rkey(pkt, ibwr->wr.rdma.rkey);
-		reth_set_va(pkt, wqe->iova);
-		reth_set_len(pkt, wqe->dma.resid);
+		if(pkt->mask & RXE_START_MASK)
+		{
+			wqe->first_psn = pkt->psn;
+			reth_set_va(pkt, wqe->iova);
+			reth_set_len(pkt, wqe->dma.resid);
+		}
+		else{
+			reth_set_va(pkt, wqe->iova + (pkt->psn - wqe->first_psn) * payload_size(pkt)); // set va for selective retrans to write data in correctly.
+			reth_set_len(pkt, wqe->dma.resid - (pkt->psn - wqe->first_psn) * payload_size(pkt));
+		}
 	}
 
 	if (pkt->mask & RXE_IMMDT_MASK)

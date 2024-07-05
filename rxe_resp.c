@@ -408,7 +408,8 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 			qp->resp.va = reth_va(pkt);
 			qp->resp.rkey = reth_rkey(pkt);
 			qp->resp.resid = reth_len(pkt);
-			qp->resp.length = reth_len(pkt);
+			if(pkt->mask & RXE_START_MASK)
+				qp->resp.length = reth_len(pkt);
 		}
 		access = (pkt->mask & RXE_READ_MASK) ? IB_ACCESS_REMOTE_READ
 						     : IB_ACCESS_REMOTE_WRITE;
@@ -517,6 +518,24 @@ static enum resp_states write_data_in(struct rxe_qp *qp,
 
 	qp->resp.va += data_len;
 	qp->resp.resid -= data_len;
+
+out:
+	return rc;
+}
+
+static enum resp_states write_data_in_sack(struct rxe_qp *qp,
+				      struct rxe_pkt_info *pkt)
+{
+	enum resp_states rc = RESPST_NONE;
+	int	err;
+	int data_len = payload_size(pkt);
+
+	err = rxe_mem_copy(qp->resp.mr, qp->resp.va, payload_addr(pkt),
+			   data_len, to_mem_obj, NULL);
+	if (err) {
+		rc = RESPST_ERR_RKEY_VIOLATION;
+		goto out;
+	}
 
 out:
 	return rc;
@@ -909,7 +928,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 }
 
 //if arrived packet's sequence number is greater than expected, prepare an NACK and mark bitmap.
-//TODO:read process should be modified, now it's only for semantic completeness.
+//TODO:read process should be modified, now it's only for semantic completeness. As well as send_data_in.
 static enum resp_states ooo_handling(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 {
 	qp->resp.aeth_syndrome == AETH_NAK_PSN_SEQ_ERROR;
@@ -940,7 +959,7 @@ static enum resp_states ooo_handling(struct rxe_qp *qp, struct rxe_pkt_info *pkt
 		if (err)
 			return err;
 	} else if (pkt->mask & RXE_WRITE_MASK) {
-		err = write_data_in(qp, pkt);
+		err = write_data_in_sack(qp, pkt);
 		if (err)
 			return err;
 	} else if (pkt->mask & RXE_READ_MASK) {
