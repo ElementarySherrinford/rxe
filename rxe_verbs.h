@@ -60,12 +60,12 @@ static inline int psn_compare(u32 psn_a, u32 psn_b)
 }
 
 //extract a specific range of bits , denoted by [low,high]. LSB starts at pos 0.
-static inline uint_fast32_t extractBits(__uint128_t num, int low, int high) {
+static inline __u32 extractBits(__uint128_t num, int low, int high) {
     // Create a mask to select the desired bits.
     __uint128_t mask = ((1 << (high - low + 1)) - 1) << low;
 
     // Use bitwise AND to extract the bits.
-    uint_fast32_t result = (num & mask) >> low;
+    __u32 result = (num & mask) >> low;
 
     return result;
 }

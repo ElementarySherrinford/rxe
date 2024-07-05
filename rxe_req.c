@@ -15,15 +15,15 @@ static int next_opcode(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 		       u32 opcode);
 
 //bitshift operations to 'find first zero' (or find new hole), done by dividing the bitmap into chunks of 32 and operating on them in parallel. 
-static inline bool findNextHoleTx(__uint128_t bitmap, uint_fast8_t nextHole) {
-	uint_fast8_t bits_to_shiftArr[BDPBY32];
-	uint_fast8_t bits_to_shift = 0;
+static inline bool findNextHoleTx(__uint128_t bitmap, __u8 nextHole) {
+	__u8 bits_to_shiftArr[BDPBY32];
+	__u8 bits_to_shift = 0;
 
 	//collectPartStats: 
 	for(int i=0; i < BDPBY32; i++) {
 		int idx = i << 5;
-		uint_fast32_t part = extractBits(bitmap,idx, idx + 31);
-		uint_fast8_t bits_to_shift_part = 0;
+		__u32 part = extractBits(bitmap,idx, idx + 31);
+		__u8 bits_to_shift_part = 0;
 		if((part & 0xffff) == 0xffff) {
 			bits_to_shift_part += 16;
 			part = part >> 16;
@@ -52,7 +52,7 @@ static inline bool findNextHoleTx(__uint128_t bitmap, uint_fast8_t nextHole) {
 		bool factor = 1;
 		if(i > 0)
 		{
-			uint_fast8_t factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
+			__u8 factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
 			factor = !!factor_u;
 		} 
 
@@ -684,7 +684,7 @@ next_wqe:
 	//if the flag to find new hole is set, search for the next hole in the bitmap.
 	if(qp->req.findNewHole) {
 		__uint128_t tempBitmap;// BDP-bit
-		uint_fast32_t startidx;// 32 bit
+		__u32 startidx;// 32 bit
 		if(qp->req.retransmitSN >= qp->comp.psn) {
 			tempBitmap = qp->comp.sack_bitmap >> (qp->req.retransmitSN - qp->comp.psn + 1); //shift out the used part.
 			startidx = qp->req.retransmitSN + 1;
@@ -693,7 +693,7 @@ next_wqe:
 			tempBitmap = qp->comp.sack_bitmap;
 			startidx = qp->comp.psn;
 		}
-		uint_fast8_t nextHole = 0; // LOGBDP bit
+		__u8 nextHole = 0; // LOGBDP bit
 		bool holeFound;
 		holeFound = findNextHoleTx(tempBitmap, nextHole);
 		//if hole is found, prepare the sequence for retransmission.
