@@ -222,6 +222,7 @@ static int rxe_qp_init_req(struct rxe_dev *rxe, struct rxe_qp *qp,
 	qp->src_port = RXE_ROCE_V2_SPORT +
 		(hash_32_generic(qp_num(qp), 14) & 0x3fff);
 	qp->sq.max_wr		= init->cap.max_send_wr;
+	qp->ssq.max_wr		= init->cap.max_send_wr;
 
 	/* These caps are limited by rxe_qp_chk_cap() done by the caller */
 	wqe_size = max_t(int, init->cap.max_send_sge * sizeof(struct ib_sge),
@@ -229,10 +230,14 @@ static int rxe_qp_init_req(struct rxe_dev *rxe, struct rxe_qp *qp,
 	qp->sq.max_sge = init->cap.max_send_sge =
 		wqe_size / sizeof(struct ib_sge);
 	qp->sq.max_inline = init->cap.max_inline_data = wqe_size;
+	qp->ssq.max_sge = init->cap.max_send_sge =
+		wqe_size / sizeof(struct ib_sge);
+	qp->ssq.max_inline = init->cap.max_inline_data = wqe_size;
 	wqe_size += sizeof(struct rxe_send_wqe);
 
 	qp->sq.queue = rxe_queue_init(rxe, &qp->sq.max_wr, wqe_size);
-	if (!qp->sq.queue)
+	qp->ssq.queue = rxe_queue_init(rxe, &qp->sq.max_wr, wqe_size);
+	if (!qp->sq.queue || !qp->ssq.queue)
 		return -ENOMEM;
 
 	err = do_mmap_info(rxe, uresp ? &uresp->sq_mi : NULL, udata,
@@ -252,6 +257,7 @@ static int rxe_qp_init_req(struct rxe_dev *rxe, struct rxe_qp *qp,
 	qp->comp.opcode		= -1;
 
 	spin_lock_init(&qp->sq.sq_lock);
+	spin_lock_init(&qp->ssq.sq_lock);
 	skb_queue_head_init(&qp->req_pkts);
 
 	rxe_init_task(rxe, &qp->req.task, qp,

@@ -276,6 +276,7 @@ struct rxe_qp {
 
 	struct rxe_sq		sq;
 	struct rxe_rq		rq;
+	struct rxe_sq		ssq;//queue for saving premature completed wqe for cqe operations.
 
 	struct socket		*sk;
 	u32			dst_cookie;

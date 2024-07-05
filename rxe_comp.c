@@ -27,6 +27,7 @@ enum comp_state {
 	COMPST_ERROR,
 	COMPST_EXIT, /* We have an issue, and we want to rerun the completer */
 	COMPST_DONE, /* The completer finished successflly */
+	COMPST_CQEERR,
 };
 
 static char *comp_state_name[] =  {
@@ -45,6 +46,7 @@ static char *comp_state_name[] =  {
 	[COMPST_ERROR]			= "ERROR",
 	[COMPST_EXIT]			= "EXIT",
 	[COMPST_DONE]			= "DONE",
+	[COMPST_CQEERR]			= "CQEERR"
 };
 
 static unsigned long rnrnak_usec[32] = {
@@ -499,17 +501,46 @@ static void make_send_cqe(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
  * indicator requests an Unsignaled Completion.
  * ---------8<---------8<-------------
  */
-static void do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe)
+static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, __u8 numCQEdone)
 {
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 	struct rxe_cqe cqe;
 
+	int err;
+	struct rxe_ssq *ssq = &qp->ssq;
+	struct rxe_send_wqe *save_send_wqe;
+	struct rxe_send_wqe *expire_send_wqe;
+	unsigned long flags;
+	unsigned int save_wqe_index;
+
 	if ((qp->sq_sig_type == IB_SIGNAL_ALL_WR) ||
 	    (wqe->wr.send_flags & IB_SEND_SIGNALED) ||
 	    wqe->status != IB_WC_SUCCESS) {
-		make_send_cqe(qp, wqe, &cqe);
+		spin_lock_irqsave(&qp->ssq.sq_lock, flags);
+
+		if (unlikely(queue_full(ssq->queue))) {
+			err = -ENOMEM;
+			goto err1;
+		}
+
+		save_send_wqe = producer_addr(ssq->queue);
+		*save_send_wqe = *wqe;
+
+		advance_producer(ssq->queue);
+		spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
+
+		for (save_wqe_index = consumer_index(qp->ssq.queue);
+		numCQEdone != 0 && save_wqe_index != producer_index(qp->ssq.queue);
+		save_wqe_index = next_index(qp->ssq.queue, save_wqe_index)) {
+		expire_send_wqe = addr_from_index(qp->ssq.queue, save_wqe_index);
+
+		make_send_cqe(qp, expire_send_wqe, &cqe);
 		advance_consumer(qp->sq.queue);
+		advance_consumer(qp->ssq.queue);
 		rxe_cq_post(qp->scq, &cqe, 0);
+		
+		numCQEdone--;
+		}
 	} else {
 		advance_consumer(qp->sq.queue);
 	}
@@ -527,6 +558,10 @@ static void do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe)
 		qp->req.wait_fence = 0;
 		rxe_run_task(&qp->req.task, 0);
 	}
+	return 0;
+	err1:
+	spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
+	return err;
 }
 
 static inline enum comp_state complete_ack(struct rxe_qp *qp,
@@ -534,6 +569,7 @@ static inline enum comp_state complete_ack(struct rxe_qp *qp,
 					   struct rxe_send_wqe *wqe)
 {
 	unsigned long flags;
+	unsigned int err;
 
 	if (wqe->has_rd_atomic) {
 		wqe->has_rd_atomic = 0;
@@ -567,7 +603,11 @@ static inline enum comp_state complete_ack(struct rxe_qp *qp,
 		}
 	}
 
-	do_complete(qp, wqe);
+	__u8 numCQEdone = aeth_ncqe(pkt);
+	err = do_complete(qp, wqe, numCQEdone);
+
+	if(err)
+		return COMPST_CQEERR;
 
 	if (psn_compare(pkt->psn, qp->comp.psn) >= 0)
 		return COMPST_UPDATE_COMP;
@@ -579,6 +619,8 @@ static inline enum comp_state complete_wqe(struct rxe_qp *qp,
 					   struct rxe_pkt_info *pkt,
 					   struct rxe_send_wqe *wqe)
 {
+	unsigned int err;
+
 	if (pkt && wqe->state == wqe_state_pending) {
 		if (psn_compare(wqe->last_psn, qp->comp.psn) >= 0) {
 			qp->comp.psn = (wqe->last_psn + 1) & BTH_PSN_MASK;
@@ -591,7 +633,11 @@ static inline enum comp_state complete_wqe(struct rxe_qp *qp,
 		}
 	}
 
-	do_complete(qp, wqe);
+	__u8 numCQEdone = aeth_ncqe(pkt);
+	err = do_complete(qp, wqe, numCQEdone);
+
+	if(err)
+		return COMPST_CQEERR;
 
 	return COMPST_GET_WQE;
 }
@@ -832,6 +878,15 @@ int rxe_completer(void *arg)
 			rxe_qp_error(qp);
 			ret = -EAGAIN;
 			goto done;
+		
+		case COMPST_CQEERR:
+			WARN_ON_ONCE(wqe->status == IB_WC_SUCCESS);
+			pr_debug("qp#%d cqe process error\n",
+					 qp_num(qp));
+			ret = -ENOMEM;
+			goto done;
+
+		
 		}
 	}
 
