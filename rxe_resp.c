@@ -813,7 +813,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 		if (err)
 			return err;
 	} else if (pkt->mask & RXE_WRITE_MASK) {
-		err = write_data_in(qp, pkt);
+		err = write_data_in_sack(qp, pkt);
 		if (err)
 			return err;
 	} else if (pkt->mask & RXE_READ_MASK) {
@@ -847,8 +847,8 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 		for(int i=0; i < BDPBY32; i++) {
 			int idx = i << 5; //shift idx to the right pos to process bitmap chunks
 			//extract chunks
-			__u32 part1 = extractBits(localPerQPInfo.ooo_bitmap1,idx, idx + 31);
-			__u32 part2 = extractBits(localPerQPInfo.ooo_bitmap2,idx, idx + 31);
+			__u32 part1 = extractBits(qp->resp.ooo_bitmap1,idx, idx + 31);
+			__u32 part2 = extractBits(qp->resp.ooo_bitmap2,idx, idx + 31);
 			__u32 part = (part1 | part2);//every received packet
 			__u8 bits_to_shift_part = 0;
 			if((part & 0xffff) == 0xffff) {
@@ -931,13 +931,13 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 //TODO:read process should be modified, now it's only for semantic completeness. As well as send_data_in.
 static enum resp_states ooo_handling(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 {
-	qp->resp.aeth_syndrome == AETH_NAK_PSN_SEQ_ERROR;
+	qp->resp.aeth_syndrome = AETH_NAK_PSN_SEQ_ERROR;
 	__uint128_t temp = 1;
 	temp = temp << (pkt->psn - qp->resp.psn);
 	if(pkt->mask & RXE_END_MASK) {
 		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 | temp;	
 	}
-	if((pkt->mask & RXE_COMP_MASK) || (!pkt->mask & RXE_END_MASK)) {
+	if((pkt->mask & RXE_COMP_MASK) || !(pkt->mask & RXE_END_MASK)) {
 		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 | temp;	
 	}
 

@@ -29,7 +29,7 @@
 		}
 #	endif
 #else
-static int popcount(uint32_t i)
+static inline int popcount32(uint32_t i)
 {
      i = i - ((i >> 1) & 0x55555555);        // add pairs of bits
      i = (i & 0x33333333) + ((i >> 2) & 0x33333333);  // quads
