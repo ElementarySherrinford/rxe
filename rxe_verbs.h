@@ -223,7 +223,7 @@ struct rxe_resp_info {
 	u32			msn;
 	u32			psn; //expected PSN
 	u32			ack_psn; //cumACK PSN
-	//u32			sack_psn; //Selective ACK PSN  
+	//u32			sack_psn; //Selective ACK PSN
 	int			opcode;
 	int			drop_msg;
 	int			goto_error;

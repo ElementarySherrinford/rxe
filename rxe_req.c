@@ -14,12 +14,12 @@
 static int next_opcode(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
 		       u32 opcode);
 
-//bitshift operations to 'find first zero' (or find new hole), done by dividing the bitmap into chunks of 32 and operating on them in parallel. 
+//bitshift operations to 'find first zero' (or find new hole), done by dividing the bitmap into chunks of 32 and operating on them in parallel.
 static inline bool findNextHoleTx(__uint128_t bitmap, __u8 nextHole) {
 	__u8 bits_to_shiftArr[BDPBY32];
 	__u8 bits_to_shift = 0;
 
-	//collectPartStats: 
+	//collectPartStats:
 	for(int i=0; i < BDPBY32; i++) {
 		int idx = i << 5;
 		__u32 part = extractBits(bitmap,idx, idx + 31);
@@ -54,7 +54,7 @@ static inline bool findNextHoleTx(__uint128_t bitmap, __u8 nextHole) {
 		{
 			__u8 factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
 			factor = !!factor_u;
-		} 
+		}
 
 		bits_to_shiftArr[i] *= factor;
 		bits_to_shift += bits_to_shiftArr[i];
@@ -62,8 +62,8 @@ static inline bool findNextHoleTx(__uint128_t bitmap, __u8 nextHole) {
 	bitmap = bitmap >> bits_to_shift;
 	nextHole = bits_to_shift;
 	if(bitmap == 0) return 0;
-	return 1; 
-} 
+	return 1;
+}
 
 
 static inline void retry_first_write_send(struct rxe_qp *qp,
@@ -654,7 +654,7 @@ next_wqe:
 		qp->req.need_retry = 0;
 	}
 	//if a packet has been marked for retransmission and if it has not already been acked,
-	//set it as the packet to be sent, update the recovery sequence, 
+	//set it as the packet to be sent, update the recovery sequence,
 	//disable further retransmission, and set flag to find new hole in bitmap.
 	//inRecovery is set to true, if the retransmit SN is equal to cumulative ack.
 	if((qp->req.doRetransmit) && (qp->req.retransmitSN >= qp->comp.psn)) {
@@ -673,12 +673,12 @@ next_wqe:
 		//if packet marked for retransmission has been acked, disable flag to find new hole.
 		if(qp->req.doRetransmit) qp->req.findNewHole = false;
 		qp->req.doRetransmit = false;
-		//prepare transmission of a new packet, 
+		//prepare transmission of a new packet,
 		//if the number of packets in flight is smaller than the maxCap (set to BDP). Maybe use RXE_INFLIGHT_SKBS_PER_QP_HIGH?
 		if(qp->req.nextSNtoSend - qp->comp.psn < BDP) {
 			qp->req.psn = qp->req.nextSNtoSend;
 			qp->req.nextSNtoSend = (qp->req.nextSNtoSend + 1) & BTH_PSN_MASK;//TODO:check nextSNtoSend flag is set correctly.
-		} 
+		}
 	}
 
 	//if the flag to find new hole is set, search for the next hole in the bitmap.
@@ -700,11 +700,11 @@ next_wqe:
 		if(holeFound) {
 			qp->req.retransmitSN = nextHole + startidx;
 			qp->req.doRetransmit = true;
-		} 
+		}
 		qp->req.findNewHole = false;
 	}
 
-	
+
 	if (unlikely(!wqe))
 		goto exit;
 

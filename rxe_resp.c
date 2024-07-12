@@ -888,8 +888,8 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 			{
 				__u8 factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
 				factor = !!factor_u;//cast to bool
-			} 
-					
+			}
+
 			bits_to_shiftArr[i] *= factor;
 			msnIncArr[i] *= factor;
 			localNumCQEDoneArr[i] *= factor;
@@ -897,7 +897,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 			bits_to_shift += bits_to_shiftArr[i];
 			msnInc += msnIncArr[i];
 			qp->resp.numCQEdone += localNumCQEDoneArr[i];
-				
+
 		}
 
 		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 >> bits_to_shift;
@@ -915,7 +915,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 	if (pkt->mask & RXE_END_MASK) {
 		/* Last packet. */
 		qp->resp.msn++;
-	} 
+	}
 	if (pkt->mask & RXE_COMP_MASK) {
 		/* We successfully processed this new request. */
 		//qp->resp.msn++;
@@ -935,10 +935,10 @@ static enum resp_states ooo_handling(struct rxe_qp *qp, struct rxe_pkt_info *pkt
 	__uint128_t temp = 1;
 	temp = temp << (pkt->psn - qp->resp.psn);
 	if(pkt->mask & RXE_END_MASK) {
-		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 | temp;	
+		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 | temp;
 	}
 	if((pkt->mask & RXE_COMP_MASK) || !(pkt->mask & RXE_END_MASK)) {
-		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 | temp;	
+		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 | temp;
 	}
 
 	enum resp_states err;

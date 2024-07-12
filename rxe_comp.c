@@ -288,7 +288,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 		if(psn_compare(cumAck, qp->req.nextSNtoSend) > 0)
 			qp->req.nextSNtoSend = cumAck;
 
-		//check if any new packets are cumulatively acked and update last ack value and the bitmap. 
+		//check if any new packets are cumulatively acked and update last ack value and the bitmap.
 		bool newAck = false;
 		if(psn_compare(cumAck, qp->comp.psn) > 0) {
 			newAck = true;
@@ -300,7 +300,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 		switch (syn & AETH_TYPE_MASK) {
 		case AETH_ACK:
 			reset_retry_counters(qp);
-			//when cumulative ack is greater than recovery sequence, 
+			//when cumulative ack is greater than recovery sequence,
 			//exit recovery and disable flags for retransmission and bitmap lookup.
 			if (psn_compare(cumAck, qp->req.recoverSN) > 0) {
 				qp->req.inRecovery = false;
@@ -311,12 +311,12 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 			if (newAck) {
 				if(qp->req.inRecovery) {
 					//partial ack: retransmit this packet only if it has not already been retransmitted. i.e. update retransmitSN to avoid duplicate retransmit.
-					if((qp->req.retransmitSN < qp->comp.psn) || ((qp->req.retransmitSN == qp->comp.psn) && (qp->req.doRetransmit))) { 
+					if((qp->req.retransmitSN < qp->comp.psn) || ((qp->req.retransmitSN == qp->comp.psn) && (qp->req.doRetransmit))) {
 						qp->req.retransmitSN = qp->comp.psn;
 						qp->req.doRetransmit = true;
 						qp->req.findNewHole = false;
-					}	 
-				}	 
+					}
+				}
 			}
 			return COMPST_WRITE_SEND;
 
@@ -358,16 +358,16 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 						qp->req.findNewHole = true;
 						qp->req.doRetransmit = false;
 					}
-					//if the sack creation leads to new holes, and retransmit flag is not set to true, 
+					//if the sack creation leads to new holes, and retransmit flag is not set to true,
 					//set flag to find new holes.
 					else if(!qp->req.doRetransmit) {
 						__uint128_t temp2 = qp->comp.sack_bitmap >> (pkt->psn - qp->comp.psn + 1);
 						if(temp2 == 0) {
 							qp->req.findNewHole = true;
 						}
-					} 
+					}
 				}
-				//when cumulative ack is greater than recovery sequence, 
+				//when cumulative ack is greater than recovery sequence,
 				//exit recovery and disable flags for retransmission and bitmap lookup.
 				if (psn_compare(cumAck, qp->req.recoverSN) > 0) {
 					qp->req.inRecovery = false;
@@ -378,17 +378,17 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 				if (newAck) {
 					if(qp->req.inRecovery) {
 						//partial ack: retransmit this packet only if it has not already been retransmitted. i.e. update retransmitSN to avoid duplicate retransmit.
-						if((qp->req.retransmitSN < qp->comp.psn) || ((qp->req.retransmitSN == qp->comp.psn) && (qp->req.doRetransmit))) { 
+						if((qp->req.retransmitSN < qp->comp.psn) || ((qp->req.retransmitSN == qp->comp.psn) && (qp->req.doRetransmit))) {
 							qp->req.retransmitSN = qp->comp.psn;
 							qp->req.doRetransmit = true;
 							qp->req.findNewHole = false;
-						}	 
-					}	 
+						}
+					}
 				} else {
 					if(!qp->req.inRecovery) {
-						//first duplicated cumulative ack. 
+						//first duplicated cumulative ack.
 						//check if it is due to a valid lost packet. Start retransmission.
-						if (psn_compare(qp->comp.psn, qp->req.nextSNtoSend) < 0) { 
+						if (psn_compare(qp->comp.psn, qp->req.nextSNtoSend) < 0) {
 							qp->req.retransmitSN = qp->comp.psn;
 							qp->req.doRetransmit = true;
 							qp->req.findNewHole = false;
@@ -538,7 +538,7 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, __u8 numCQEd
 		advance_consumer(qp->sq.queue);
 		advance_consumer(qp->ssq.queue);
 		rxe_cq_post(qp->scq, &cqe, 0);
-		
+
 		numCQEdone--;
 		}
 	} else {
@@ -878,7 +878,7 @@ int rxe_completer(void *arg)
 			rxe_qp_error(qp);
 			ret = -EAGAIN;
 			goto done;
-		
+
 		case COMPST_CQEERR:
 			WARN_ON_ONCE(wqe->status == IB_WC_SUCCESS);
 			pr_debug("qp#%d cqe process error\n",
@@ -886,7 +886,7 @@ int rxe_completer(void *arg)
 			ret = -ENOMEM;
 			goto done;
 
-		
+
 		}
 	}
 
