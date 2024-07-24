@@ -387,11 +387,15 @@ void rxe_rcv(struct sk_buff *skb)
 	/* Verify ICRC */
 	icrcp = (__be32 *)(pkt->hdr + pkt->paylen - RXE_ICRC_SIZE);
 	pack_icrc = be32_to_cpu(*icrcp);
-
+	pr_info("pack_icrc is %d\n", pack_icrc);
 	calc_icrc = rxe_icrc_hdr(pkt, skb);
+	//pr_info("calc_icrc1 is %d\n", calc_icrc);
+	//pr_info("calc_icrc2 is %d\n", (__force u32)cpu_to_be32(~calc_icrc));
 	calc_icrc = rxe_crc32(rxe, calc_icrc, (u8 *)payload_addr(pkt),
 			      payload_size(pkt) + bth_pad(pkt));
+	//pr_info("calc_icrc3 is %d\n", calc_icrc);
 	calc_icrc = (__force u32)cpu_to_be32(~calc_icrc);
+	pr_info("calc_icrc is %d\n", calc_icrc);
 	if (unlikely(calc_icrc != pack_icrc)) {
 		if (skb->protocol == htons(ETH_P_IPV6))
 			pr_warn_ratelimited("bad ICRC from %pI6c\n",

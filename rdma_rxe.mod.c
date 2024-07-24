@@ -154,5 +154,5 @@ __attribute__((section(".modinfo"))) =
 "depends=ib_core,ip6_udp_tunnel,udp_tunnel,ib_uverbs";
 
 
-MODULE_INFO(srcversion, "ED34C90A872E255E7B5A213");
+MODULE_INFO(srcversion, "ABC5D6C621C3068A8B23B25");
 MODULE_INFO(rhelversion, "8.5");
