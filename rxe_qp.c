@@ -682,6 +682,7 @@ int rxe_qp_from_attr(struct rxe_qp *qp, struct ib_qp_attr *attr, int mask,
 	if (mask & IB_QP_SQ_PSN) {
 		qp->attr.sq_psn = (attr->sq_psn & BTH_PSN_MASK);
 		qp->req.psn = qp->attr.sq_psn;
+		qp->req.nextSNtoSend = qp->attr.sq_psn;
 		qp->comp.psn = qp->attr.sq_psn;
 		pr_debug("qp#%d set req psn = 0x%x\n", qp_num(qp), qp->req.psn);
 	}

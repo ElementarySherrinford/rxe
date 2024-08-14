@@ -60,12 +60,12 @@ static inline int psn_compare(u32 psn_a, u32 psn_b)
 }
 
 //extract a specific range of bits , denoted by [low,high]. LSB starts at pos 0.
-static inline __u32 extractBits(__uint128_t num, int low, int high) {
+static inline u32 extractBits(__uint128_t num, int low, int high) {
     // Create a mask to select the desired bits.
     __uint128_t mask = ((1 << (high - low + 1)) - 1) << low;
 
     // Use bitwise AND to extract the bits.
-    __u32 result = (num & mask) >> low;
+    u32 result = (num & mask) >> low;
 
     return result;
 }
@@ -159,9 +159,9 @@ struct rxe_req_info {
 	enum rxe_qp_state	state;
 	int			wqe_index;
 	u32			psn; // 24bit, psn to be sent via TX.
-	__u32	nextSNtoSend;// next new packet psn to be sent.
-	__u32	retransmitSN; //24bit, current psn set for retransmission.
-	__u32	recoverSN;	//24bit, latest sent pkt's PSN.
+	u32			nextSNtoSend;// next new packet psn to be sent.
+	u32			retransmitSN; //24bit, current psn set for retransmission.
+	u32			recoverSN;	//24bit, latest sent pkt's PSN.
 	int			opcode;
 	atomic_t		rd_atomic;
 	int			wait_fence;
@@ -169,9 +169,9 @@ struct rxe_req_info {
 	int			wait_psn;
 	int			need_retry;
 	int			noack_pkts;
-	bool doRetransmit; // flag to determine whether to retransmit current hole.
-	bool inRecovery; // flag to enable/disable recovery mode.
-	bool findNewHole; // flag to determine whether to seek for a new hole to retransmit.
+	bool 		doRetransmit; // flag to determine whether to retransmit current hole.
+	bool 		inRecovery; // flag to enable/disable recovery mode.
+	bool 		findNewHole; // flag to determine whether to seek for a new hole to retransmit.
 	struct rxe_task		task;
 };
 

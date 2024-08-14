@@ -833,7 +833,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 
 	qp->resp.numCQEdone = 0;
 
-	__u8 msnInc = 0, bits_to_shift = 0; //LOGBDP bit
+	u8 msnInc = 0, bits_to_shift = 0; //LOGBDP bit
 
 	//bitmapNotEmpty
 	if(temp != 0) {
@@ -841,16 +841,16 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 >> 1;
 		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 >> 1;
 
-		__u8 bits_to_shiftArr[BDPBY32], msnIncArr[BDPBY32], localNumCQEDoneArr[BDPBY32]; //LOGBDP bit
+		u8 bits_to_shiftArr[BDPBY32], msnIncArr[BDPBY32], localNumCQEDoneArr[BDPBY32]; //LOGBDP bit
 
 		//collectPartStats: chop BDP-bit bitmap into 32-bit chunks to process
 		for(int i=0; i < BDPBY32; i++) {
 			int idx = i << 5; //shift idx to the right pos to process bitmap chunks
 			//extract chunks
-			__u32 part1 = extractBits(qp->resp.ooo_bitmap1,idx, idx + 31);
-			__u32 part2 = extractBits(qp->resp.ooo_bitmap2,idx, idx + 31);
-			__u32 part = (part1 | part2);//every received packet
-			__u8 bits_to_shift_part = 0;
+			u32 part1 = extractBits(qp->resp.ooo_bitmap1,idx, idx + 31);
+			u32 part2 = extractBits(qp->resp.ooo_bitmap2,idx, idx + 31);
+			u32 part = (part1 | part2);//every received packet
+			u8 bits_to_shift_part = 0;
 			if((part & 0xffff) == 0xffff) {
 				bits_to_shift_part += 16;
 				part = part >> 16;
@@ -886,7 +886,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 			bool factor = 1;
 			if(i > 0)
 			{
-				__u8 factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
+				u8 factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
 				factor = !!factor_u;//cast to bool
 			}
 
