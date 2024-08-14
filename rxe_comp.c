@@ -11,6 +11,7 @@
 #include "rxe_queue.h"
 #include "rxe_task.h"
 
+
 enum comp_state {
 	COMPST_GET_ACK,
 	COMPST_GET_WQE,
@@ -145,8 +146,10 @@ static inline enum comp_state get_wqe(struct rxe_qp *qp,
 	*wqe_p = wqe;
 
 	/* no WQE or requester has not started it yet */
-	if (!wqe || wqe->state == wqe_state_posted)
+	if (!wqe || wqe->state == wqe_state_posted){
+		pr_alert("no wqe");
 		return pkt ? COMPST_DONE : COMPST_EXIT;
+	}
 
 	/* WQE does not require an ack */
 	if (wqe->state == wqe_state_done)
@@ -212,7 +215,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 {
 	unsigned int mask = pkt->mask;
 	u8 syn;
-	__u32 cumAck;
+	
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 
 	/* Check the sequence only */
@@ -280,11 +283,17 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 		reset_retry_counters(qp);
 		return COMPST_ATOMIC;
 
-	case IB_OPCODE_RC_ACKNOWLEDGE:
-		cumAck = aeth_cumACK(pkt);
+	case IB_OPCODE_RC_ACKNOWLEDGE: ;
+		//unsigned long flags;
+		//static DEFINE_SPINLOCK(ack_lock);
+		u32 cumAck = aeth_cumACK(pkt);
 		//update next sequence to send, if cumulative ack is higher.
 		if(psn_compare(cumAck, qp->req.nextSNtoSend) > 0)
 			qp->req.nextSNtoSend = cumAck;
+		/*if(cumAck > qp->req.nextSNtoSend){
+			pr_alert("SN reset,cumack=%d, nextSN=%d", cumAck, qp->req.nextSNtoSend);
+			qp->req.nextSNtoSend = cumAck;
+		}*/
 
 		//check if any new packets are cumulatively acked and update last ack value and the bitmap. 
 		bool newAck = false;
@@ -292,6 +301,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 			newAck = true;
 			qp->comp.sack_bitmap = qp->comp.sack_bitmap >> (cumAck - qp->comp.psn); //keep the pos 0 of the sack bitmap to be lACK pkt.
 			qp->comp.psn = cumAck;
+			pr_alert("new ack set, cumack is %d, req.psn is %d", cumAck, qp->req.psn);
 		}
 
 		syn = aeth_syn(pkt);
@@ -323,6 +333,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 			return COMPST_RNR_RETRY;
 
 		case AETH_NAK:
+			pr_alert("nak");
 			switch (syn) {
 			case AETH_NAK_PSN_SEQ_ERROR:
 				/* a nak implicitly acks all packets with psns
@@ -397,6 +408,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 				return COMPST_WRITE_SEND;
 
 			case AETH_NAK_INVALID_REQ:
+				pr_alert("invalid req");
 				wqe->status = IB_WC_REM_INV_REQ_ERR;
 				return COMPST_ERROR;
 
@@ -733,6 +745,7 @@ int rxe_completer(void *arg)
 
 		case COMPST_EXIT:
 			if (qp->comp.timeout_retry && wqe) {
+				pr_alert("compst_err_retry");
 				state = COMPST_ERROR_RETRY;
 				break;
 			}
@@ -747,10 +760,12 @@ int rxe_completer(void *arg)
 			 */
 			if ((qp_type(qp) == IB_QPT_RC) &&
 			    (qp->req.state == QP_STATE_READY) &&
-			    (psn_compare(qp->req.psn, qp->comp.psn) > 0) &&
-			    qp->qp_timeout_jiffies)
-				mod_timer(&qp->retrans_timer,
+			    (psn_compare(qp->req.nextSNtoSend, qp->comp.psn) > 0) &&
+			    qp->qp_timeout_jiffies){
+					mod_timer(&qp->retrans_timer,
 					  jiffies + qp->qp_timeout_jiffies);
+					pr_info("timer reset");
+				}
 			ret = -EAGAIN;
 			goto done;
 
@@ -793,6 +808,7 @@ int rxe_completer(void *arg)
 					rxe_counter_inc(rxe,
 							RXE_CNT_COMP_RETRY);
 					qp->req.need_retry = 1;
+					pr_alert("retry nxt time");
 					qp->comp.started_retry = 1;
 					rxe_run_task(&qp->req.task, 0);
 				}
@@ -811,6 +827,7 @@ int rxe_completer(void *arg)
 					qp->comp.rnr_retry--;
 
 				qp->req.need_retry = 1;
+				pr_alert("retry set");
 				pr_debug("qp#%d set rnr nak timer\n",
 					 qp_num(qp));
 				mod_timer(&qp->rnr_nak_timer,

@@ -855,10 +855,10 @@ static inline u32 aeth_cumACK(struct rxe_pkt_info *pkt)
 		rxe_opcode[pkt->opcode].offset[RXE_AETH]);
 }
 
-static inline void aeth_set_cumACK(struct rxe_pkt_info *pkt, u32 msn)
+static inline void aeth_set_cumACK(struct rxe_pkt_info *pkt, u32 cumACK)
 {
 	__aeth_set_cumACK(pkt->hdr +
-		rxe_opcode[pkt->opcode].offset[RXE_AETH], msn);
+		rxe_opcode[pkt->opcode].offset[RXE_AETH], cumACK);
 }
 
 /******************************************************************************
