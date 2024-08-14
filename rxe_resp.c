@@ -126,12 +126,12 @@ static enum resp_states check_psn(struct rxe_qp *qp,
 		if (diff > 0) {
 			if (qp->resp.sent_psn_nak)
 				//return RESPST_CLEANUP;
-				return RESPST_CHK_OP_SEQ;
+				return RESPST_CHK_OP_VALID;
 
 
 			qp->resp.sent_psn_nak = 1;
 			rxe_counter_inc(rxe, RXE_CNT_OUT_OF_SEQ_REQ);
-			return RESPST_CHK_OP_SEQ;
+			return RESPST_CHK_OP_VALID;
 			//return RESPST_ERR_PSN_OUT_OF_SEQ;
 
 		} else if (diff < 0) {
