@@ -507,7 +507,7 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 	struct rxe_cqe cqe;
 
 	int err;
-	struct rxe_ssq *ssq = &qp->ssq;
+	struct rxe_sq *ssq = &qp->ssq;
 	struct rxe_send_wqe *save_send_wqe;
 	struct rxe_send_wqe *expire_send_wqe;
 	unsigned long flags;
@@ -656,7 +656,7 @@ static void rxe_drain_resp_pkts(struct rxe_qp *qp, bool notify)
 	while ((wqe = queue_head(qp->sq.queue))) {
 		if (notify) {
 			wqe->status = IB_WC_WR_FLUSH_ERR;
-			do_complete(qp, wqe);
+			do_complete(qp, wqe, 1);
 		} else {
 			advance_consumer(qp->sq.queue);
 		}
@@ -874,7 +874,7 @@ int rxe_completer(void *arg)
 
 		case COMPST_ERROR:
 			WARN_ON_ONCE(wqe->status == IB_WC_SUCCESS);
-			do_complete(qp, wqe);
+			do_complete(qp, wqe, 1);
 			rxe_qp_error(qp);
 			ret = -EAGAIN;
 			goto done;
