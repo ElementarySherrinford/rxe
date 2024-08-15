@@ -126,12 +126,12 @@ static enum resp_states check_psn(struct rxe_qp *qp,
 		if (diff > 0) {
 			if (qp->resp.sent_psn_nak)
 				//return RESPST_CLEANUP;
-				return RESPST_CHK_OP_SEQ;
+				return RESPST_CHK_OP_VALID;
 
 
 			qp->resp.sent_psn_nak = 1;
 			rxe_counter_inc(rxe, RXE_CNT_OUT_OF_SEQ_REQ);
-			return RESPST_CHK_OP_SEQ;
+			return RESPST_CHK_OP_VALID;
 			//return RESPST_ERR_PSN_OUT_OF_SEQ;
 
 		} else if (diff < 0) {
@@ -814,7 +814,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 
 	qp->resp.numCQEdone = 0;
 
-	uint_fast8_t msnInc = 0, bits_to_shift = 0; //LOGBDP bit
+	u8 msnInc = 0, bits_to_shift = 0; //LOGBDP bit
 
 	//bitmapNotEmpty
 	if(temp != 0) {
@@ -822,16 +822,16 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 >> 1;
 		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 >> 1;
 
-		uint_fast8_t bits_to_shiftArr[BDPBY32], msnIncArr[BDPBY32], localNumCQEDoneArr[BDPBY32]; //LOGBDP bit
+		u8 bits_to_shiftArr[BDPBY32], msnIncArr[BDPBY32], localNumCQEDoneArr[BDPBY32]; //LOGBDP bit
 
 		//collectPartStats: chop BDP-bit bitmap into 32-bit chunks to process
 		for(int i=0; i < BDPBY32; i++) {
 			int idx = i << 5; //shift idx to the right pos to process bitmap chunks
 			//extract chunks
-			uint_fast32_t part1 = extractBits(localPerQPInfo.ooo_bitmap1,idx, idx + 31);
-			uint_fast32_t part2 = extractBits(localPerQPInfo.ooo_bitmap2,idx, idx + 31);
-			uint_fast32_t part = (part1 | part2);//every received packet
-			uint_fast8_t bits_to_shift_part = 0;
+			u32 part1 = extractBits(qp->resp.ooo_bitmap1,idx, idx + 31);
+			u32 part2 = extractBits(qp->resp.ooo_bitmap2,idx, idx + 31);
+			u32 part = (part1 | part2);//every received packet
+			u8 bits_to_shift_part = 0;
 			if((part & 0xffff) == 0xffff) {
 				bits_to_shift_part += 16;
 				part = part >> 16;
@@ -867,7 +867,7 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 			bool factor = 1;
 			if(i > 0)
 			{
-				uint_fast8_t factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
+				u8 factor_u = bits_to_shiftArr[i - 1] >> 5;//LOGBDP bit
 				factor = !!factor_u;//cast to bool
 			} 
 					
@@ -912,13 +912,13 @@ static enum resp_states execute(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 //TODO:read process should be modified, now it's only for semantic completeness.
 static enum resp_states ooo_handling(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 {
-	qp->resp.aeth_syndrome == AETH_NAK_PSN_SEQ_ERROR;
+	qp->resp.aeth_syndrome = AETH_NAK_PSN_SEQ_ERROR;
 	__uint128_t temp = 1;
 	temp = temp << (pkt->psn - qp->resp.psn);
 	if(pkt->mask & RXE_END_MASK) {
 		qp->resp.ooo_bitmap2 = qp->resp.ooo_bitmap2 | temp;	
 	}
-	if((pkt->mask & RXE_COMP_MASK) || (!pkt->mask & RXE_END_MASK)) {
+	if((pkt->mask & RXE_COMP_MASK) || !(pkt->mask & RXE_END_MASK)) {
 		qp->resp.ooo_bitmap1 = qp->resp.ooo_bitmap1 | temp;	
 	}
 

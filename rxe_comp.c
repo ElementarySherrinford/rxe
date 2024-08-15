@@ -214,7 +214,7 @@ static inline enum comp_state check_ack(struct rxe_qp *qp,
 {
 	unsigned int mask = pkt->mask;
 	u8 syn;
-	__u32 cumAck;
+	u32 cumAck;
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 
 	/* Check the sequence only */
@@ -501,7 +501,7 @@ static void make_send_cqe(struct rxe_qp *qp, struct rxe_send_wqe *wqe,
  * indicator requests an Unsignaled Completion.
  * ---------8<---------8<-------------
  */
-static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, __u8 numCQEdone)
+static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdone)
 {
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 	struct rxe_cqe cqe;
@@ -603,7 +603,7 @@ static inline enum comp_state complete_ack(struct rxe_qp *qp,
 		}
 	}
 
-	__u8 numCQEdone = aeth_ncqe(pkt);
+	u8 numCQEdone = aeth_ncqe(pkt);
 	err = do_complete(qp, wqe, numCQEdone);
 
 	if(err)
@@ -633,7 +633,7 @@ static inline enum comp_state complete_wqe(struct rxe_qp *qp,
 		}
 	}
 
-	__u8 numCQEdone = aeth_ncqe(pkt);
+	u8 numCQEdone = aeth_ncqe(pkt);
 	err = do_complete(qp, wqe, numCQEdone);
 
 	if(err)
@@ -793,7 +793,7 @@ int rxe_completer(void *arg)
 			 */
 			if ((qp_type(qp) == IB_QPT_RC) &&
 			    (qp->req.state == QP_STATE_READY) &&
-			    (psn_compare(qp->req.psn, qp->comp.psn) > 0) &&
+			    (psn_compare(qp->req.nextSNtoSend, qp->comp.psn) > 0) &&
 			    qp->qp_timeout_jiffies)
 				mod_timer(&qp->retrans_timer,
 					  jiffies + qp->qp_timeout_jiffies);

@@ -29,7 +29,7 @@
 		}
 #	endif
 #else
-static int popcount(uint32_t i)
+static inline int popcount32(uint32_t i)
 {
      i = i - ((i >> 1) & 0x55555555);        // add pairs of bits
      i = (i & 0x33333333) + ((i >> 2) & 0x33333333);  // quads
@@ -60,12 +60,12 @@ static inline int psn_compare(u32 psn_a, u32 psn_b)
 }
 
 //extract a specific range of bits , denoted by [low,high]. LSB starts at pos 0.
-static inline uint_fast32_t extractBits(__uint128_t num, int low, int high) {
+static inline u32 extractBits(__uint128_t num, int low, int high) {
     // Create a mask to select the desired bits.
     __uint128_t mask = ((1 << (high - low + 1)) - 1) << low;
 
     // Use bitwise AND to extract the bits.
-    uint_fast32_t result = (num & mask) >> low;
+    u32 result = (num & mask) >> low;
 
     return result;
 }
@@ -159,9 +159,9 @@ struct rxe_req_info {
 	enum rxe_qp_state	state;
 	int			wqe_index;
 	u32			psn; // 24bit, psn to be sent via TX.
-	__u32	nextSNtoSend;// next new packet psn to be sent.
-	__u32	retransmitSN; //24bit, current psn set for retransmission.
-	__u32	recoverSN;	//24bit, latest sent pkt's PSN.
+	u32	nextSNtoSend;// next new packet psn to be sent.
+	u32	retransmitSN; //24bit, current psn set for retransmission.
+	u32	recoverSN;	//24bit, latest sent pkt's PSN.
 	int			opcode;
 	atomic_t		rd_atomic;
 	int			wait_fence;

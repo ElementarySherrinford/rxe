@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/crc32.h>
+#include <stdbool.h>
 
 #include <rdma/ib_verbs.h>
 #include <rdma/ib_user_verbs.h>
