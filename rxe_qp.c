@@ -362,6 +362,7 @@ int rxe_qp_from_init(struct rxe_dev *rxe, struct rxe_qp *qp, struct rxe_pd *pd,
 
 err2:
 	rxe_queue_cleanup(qp->sq.queue);
+	rxe_queue_cleanup(qp->ssq.queue);
 err1:
 	qp->pd = NULL;
 	qp->rcq = NULL;
@@ -517,6 +518,7 @@ static void rxe_qp_reset(struct rxe_qp *qp)
 		__rxe_do_task(&qp->comp.task);
 		__rxe_do_task(&qp->req.task);
 		rxe_queue_reset(qp->sq.queue);
+		rxe_queue_reset(qp->ssq.queue);
 	}
 
 	/* cleanup attributes */
@@ -806,6 +808,9 @@ static void rxe_qp_do_cleanup(struct work_struct *work)
 
 	if (qp->sq.queue)
 		rxe_queue_cleanup(qp->sq.queue);
+
+	if (qp->ssq.queue)
+		rxe_queue_cleanup(qp->ssq.queue);
 
 	if (qp->srq)
 		rxe_drop_ref(qp->srq);

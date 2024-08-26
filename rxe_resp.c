@@ -1100,8 +1100,9 @@ static int send_ack(struct rxe_qp *qp, struct rxe_pkt_info *pkt,
 		err = -ENOMEM;
 		goto err1;
 	}
-
+	pr_alert("ncqe is %d", qp->resp.numCQEdone);
 	err = rxe_xmit_packet(qp, &ack_pkt, skb);
+	pr_alert("ack sent psn is %d, ncqe is %d", pkt->psn, aeth_ncqe(pkt));
 	if (err)
 		pr_err_ratelimited("Failed sending ack\n");
 
