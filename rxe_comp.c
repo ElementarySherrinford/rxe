@@ -528,16 +528,14 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 
 		advance_producer(ssq->queue);
 		spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
+		advance_consumer(qp->sq.queue);
 
-		for (save_wqe_index = consumer_index(qp->ssq.queue);
-		numCQEdone != 0 && save_wqe_index != producer_index(qp->ssq.queue);
-		save_wqe_index = next_index(qp->ssq.queue, save_wqe_index)) {
-		expire_send_wqe = addr_from_index(qp->ssq.queue, save_wqe_index);
+		while (numCQEdone != 0 && !queue_empty(ssq->queue)) {
+		expire_send_wqe = queue_head(qp->ssq.queue);
 
 		make_send_cqe(qp, expire_send_wqe, &cqe);
-		advance_consumer(qp->sq.queue);
-		advance_consumer(qp->ssq.queue);
 		rxe_cq_post(qp->scq, &cqe, 0);
+		advance_consumer(qp->ssq.queue);
 		
 		numCQEdone--;
 		}
@@ -604,6 +602,7 @@ static inline enum comp_state complete_ack(struct rxe_qp *qp,
 	}
 
 	u8 numCQEdone = aeth_ncqe(pkt);
+	pr_alert("comp ack entered, ncqe is %d", numCQEdone);
 	err = do_complete(qp, wqe, numCQEdone);
 
 	if(err)
