@@ -785,7 +785,7 @@ static inline u32 __aeth_ncqe(void *arg)
 {
 	struct rxe_aeth *aeth = arg;
 
-	return AETH_NCQE_MASK & be32_to_cpu(aeth->nCQEcumACK) >> 24;
+	return (AETH_NCQE_MASK & be32_to_cpu(aeth->nCQEcumACK)) >> 24;
 }
 
 static inline void __aeth_set_ncqe(void *arg, u8 numCQEdone)
