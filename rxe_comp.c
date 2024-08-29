@@ -510,13 +510,13 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 	struct rxe_sq *ssq = &qp->ssq;
 	struct rxe_send_wqe *save_send_wqe;
 	struct rxe_send_wqe *expire_send_wqe;
-	unsigned long flags;
+	//unsigned long flags;
 	unsigned int save_wqe_index;
 
 	if ((qp->sq_sig_type == IB_SIGNAL_ALL_WR) ||
 	    (wqe->wr.send_flags & IB_SEND_SIGNALED) ||
 	    wqe->status != IB_WC_SUCCESS) {
-		spin_lock_irqsave(&qp->ssq.sq_lock, flags);
+		//spin_lock_irqsave(&qp->ssq.sq_lock, flags);
 
 		if (unlikely(queue_full(ssq->queue))) {
 			err = -ENOMEM;
@@ -527,17 +527,21 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 		*save_send_wqe = *wqe;
 
 		advance_producer(ssq->queue);
-		spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
+		//spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
 
-		for (save_wqe_index = consumer_index(qp->ssq.queue);
-		numCQEdone != 0 && save_wqe_index != producer_index(qp->ssq.queue);
-		save_wqe_index = next_index(qp->ssq.queue, save_wqe_index)) {
-		expire_send_wqe = addr_from_index(qp->ssq.queue, save_wqe_index);
+		advance_consumer(qp->sq.queue);
+
+		if(unlikely(queue_empty(ssq->queue))){
+			err = -ENOMEM;
+			return err;
+		}
+
+		while (numCQEdone != 0 && !queue_empty(ssq->queue)) {
+		expire_send_wqe = queue_head(qp->ssq.queue);
 
 		make_send_cqe(qp, expire_send_wqe, &cqe);
-		advance_consumer(qp->sq.queue);
-		advance_consumer(qp->ssq.queue);
 		rxe_cq_post(qp->scq, &cqe, 0);
+		advance_consumer(qp->ssq.queue);
 
 		numCQEdone--;
 		}
@@ -560,7 +564,7 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 	}
 	return 0;
 	err1:
-	spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
+	//spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
 	return err;
 }
 

@@ -785,7 +785,7 @@ static inline u32 __aeth_ncqe(void *arg)
 {
 	struct rxe_aeth *aeth = arg;
 
-	return AETH_NCQE_MASK & be32_to_cpu(aeth->nCQEcumACK) >> 24;
+	return (AETH_NCQE_MASK & be32_to_cpu(aeth->nCQEcumACK)) >> 24;
 }
 
 static inline void __aeth_set_ncqe(void *arg, u8 numCQEdone)
@@ -843,10 +843,10 @@ static inline u8 aeth_ncqe(struct rxe_pkt_info *pkt)
 		rxe_opcode[pkt->opcode].offset[RXE_AETH]);
 }
 
-static inline void aeth_set_ncqe(struct rxe_pkt_info *pkt, u8 syn)
+static inline void aeth_set_ncqe(struct rxe_pkt_info *pkt, u8 ncqe)
 {
 	__aeth_set_ncqe(pkt->hdr +
-		rxe_opcode[pkt->opcode].offset[RXE_AETH], syn);
+		rxe_opcode[pkt->opcode].offset[RXE_AETH], ncqe);
 }
 
 static inline u32 aeth_cumACK(struct rxe_pkt_info *pkt)
