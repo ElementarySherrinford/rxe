@@ -1,1 +1,8 @@
 /rdma_rxe.ko
+/*.[oa]
+/*.json
+*.mod
+/*.cmd
+/*.symvers
+/*.order
+/rdma_rxe.mod.c
