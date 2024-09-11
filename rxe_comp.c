@@ -178,6 +178,7 @@ static inline enum comp_state check_psn(struct rxe_qp *qp,
 	/* check to see if response is past the oldest WQE. if it is, complete
 	 * send/write or error read/atomic
 	 */
+	pr_alert("received pkt psn is %d, opcode is %s", pkt->psn, rxe_opcode[pkt->opcode].name);
 	diff = psn_compare(pkt->psn, wqe->last_psn);
 	if (diff > 0) {
 		if (wqe->state == wqe_state_pending) {
@@ -510,13 +511,13 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 	struct rxe_sq *ssq = &qp->ssq;
 	struct rxe_send_wqe *save_send_wqe;
 	struct rxe_send_wqe *expire_send_wqe;
-	//unsigned long flags;
+	unsigned long flags;
 	unsigned int save_wqe_index;
 
 	if ((qp->sq_sig_type == IB_SIGNAL_ALL_WR) ||
 	    (wqe->wr.send_flags & IB_SEND_SIGNALED) ||
 	    wqe->status != IB_WC_SUCCESS) {
-		//spin_lock_irqsave(&qp->ssq.sq_lock, flags);
+		spin_lock_irqsave(&qp->ssq.sq_lock, flags);
 
 		if (unlikely(queue_full(ssq->queue))) {
 			err = -ENOMEM;
@@ -527,9 +528,11 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 		*save_send_wqe = *wqe;
 
 		advance_producer(ssq->queue);
-		//spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
+		spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
+		pr_alert("wqe saved");
 
 		advance_consumer(qp->sq.queue);
+		pr_alert("sq advanced");
 
 		if(unlikely(queue_empty(ssq->queue))){
 			err = -ENOMEM;
@@ -544,6 +547,7 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 		advance_consumer(qp->ssq.queue);
 
 		numCQEdone--;
+		pr_alert("cqe posted");
 		}
 	} else {
 		advance_consumer(qp->sq.queue);
@@ -608,6 +612,7 @@ static inline enum comp_state complete_ack(struct rxe_qp *qp,
 	}
 
 	u8 numCQEdone = aeth_ncqe(pkt);
+	pr_alert("via comp ack");
 	err = do_complete(qp, wqe, numCQEdone);
 
 	if(err)
@@ -638,6 +643,7 @@ static inline enum comp_state complete_wqe(struct rxe_qp *qp,
 	}
 
 	u8 numCQEdone = aeth_ncqe(pkt);
+	pr_alert("via comp wqe");
 	err = do_complete(qp, wqe, numCQEdone);
 
 	if(err)
