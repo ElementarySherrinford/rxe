@@ -5,3 +5,4 @@
 /*.cmd
 /*.symvers
 /*.order
+/rdma_rxe.mod.c
