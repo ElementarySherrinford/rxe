@@ -178,7 +178,7 @@ static inline enum comp_state check_psn(struct rxe_qp *qp,
 	/* check to see if response is past the oldest WQE. if it is, complete
 	 * send/write or error read/atomic
 	 */
-	pr_alert("received pkt psn is %d, opcode is %s", pkt->psn, rxe_opcode[pkt->opcode].name);
+	pr_alert("received ack psn is %d", pkt->psn);
 	diff = psn_compare(pkt->psn, wqe->last_psn);
 	if (diff > 0) {
 		if (wqe->state == wqe_state_pending) {
@@ -531,7 +531,9 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 		spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
 		pr_alert("wqe saved");
 
+		spin_lock_irqsave(&qp->sq.sq_lock, flags);
 		advance_consumer(qp->sq.queue);
+		spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
 		pr_alert("sq advanced");
 
 		if(unlikely(queue_empty(ssq->queue))){
@@ -568,7 +570,7 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 	}
 	return 0;
 	err1:
-	//spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
+	spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
 	return err;
 }
 

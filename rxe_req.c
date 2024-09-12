@@ -819,7 +819,8 @@ next_wqe:
 	update_wqe_state(qp, wqe, &pkt);//TODO:maybe set state based on sack?
 	update_wqe_psn(qp, wqe, &pkt, payload);
 	ret = rxe_xmit_packet(qp, &pkt, skb);
-	pr_alert("packet sent, psn is %d, opcode is %s", pkt.psn, rxe_opcode[pkt.opcode].name);
+	//pr_alert("packet sent, psn is %d, opcode is %s", pkt.psn, rxe_opcode[pkt.opcode].name);
+	msleep(1000);
 	if (ret) {
 		qp->need_req_skb = 1;
 

@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/src/kernels/4.18.0-348.el8.x86_64/**"
+                "/usr/src/kernels/4.18.0-348.el8.x86_64/**",
+                "/usr/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

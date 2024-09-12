@@ -7,7 +7,9 @@
         "skbuff.h": "c",
         "rxe_loc.h": "c",
         "charconv": "c",
-        "ratio": "c"
+        "ratio": "c",
+        "unistd.h": "c",
+        "features.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
