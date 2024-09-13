@@ -117,7 +117,8 @@ static inline enum resp_states get_req(struct rxe_qp *qp,
 
 static enum resp_states check_psn(struct rxe_qp *qp,
 				  struct rxe_pkt_info *pkt)
-{
+{	
+	pr_alert("received psn is %d, received opcode is %s", pkt->psn, rxe_opcode[pkt->opcode].name);
 	int diff = psn_compare(pkt->psn, qp->resp.psn);
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 
