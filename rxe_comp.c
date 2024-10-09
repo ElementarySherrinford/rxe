@@ -531,10 +531,6 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 		spin_unlock_irqrestore(&qp->ssq.sq_lock, flags);
 		pr_alert("wqe saved");
 
-		spin_lock_irqsave(&qp->sq.sq_lock, flags);
-		advance_consumer(qp->sq.queue);
-		spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
-		pr_alert("sq advanced");
 
 		if(unlikely(queue_empty(ssq->queue))){
 			err = -ENOMEM;
@@ -551,8 +547,13 @@ static int do_complete(struct rxe_qp *qp, struct rxe_send_wqe *wqe, u8 numCQEdon
 		numCQEdone--;
 		pr_alert("cqe posted");
 		}
+		spin_lock_irqsave(&qp->sq.sq_lock, flags);
+		advance_consumer(qp->sq.queue);
+		spin_unlock_irqrestore(&qp->sq.sq_lock, flags);
+		pr_alert("sq advanced");
 	} else {
 		advance_consumer(qp->sq.queue);
+		pr_alert("sq advance without cqe");
 	}
 
 	if (wqe->wr.opcode == IB_WR_SEND ||
